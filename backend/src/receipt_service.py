@@ -40,7 +40,10 @@ def receive(s,id,u):
     if after>c.capacity_liters:raise HTTPException(409,'到港入量超过储罐剩余罐容，未改变存量')
     old_density=c.density_15;weighted=((before*old_density+x.liters*x.density_15)/after).quantize(Decimal('.001'))
     t.liters=after;c.density_15=weighted;x.state='received';x.received_by=u['email']
-    x.receipt_snapshot={'code':x.code,'tank_code':t.code,'grade':t.grade,'before_liters':float(before),'receipt_liters':float(x.liters),'after_liters':float(after),'capacity_liters':float(c.capacity_liters),'before_density_15':float(old_density),'arrival_density_15':float(x.density_15),'weighted_density_15':float(weighted),'received_by':u['email'],'at':now(),'density_formula':'(before_liters * before_density + receipt_liters * arrival_density) / after_liters'}
+    from .layer_service import invalidate_for_receipt
+    dropped=invalidate_for_receipt(s,t.id)
+    if dropped:audit(s,u,'stratification_invalidated',f'{t.code}:补油入罐使{dropped}层登记作废，须重新分层取样')
+    x.receipt_snapshot={'code':x.code,'tank_code':t.code,'grade':t.grade,'before_liters':float(before),'receipt_liters':float(x.liters),'after_liters':float(after),'capacity_liters':float(c.capacity_liters),'before_density_15':float(old_density),'arrival_density_15':float(x.density_15),'weighted_density_15':float(weighted),'stratification_invalidated_layers':dropped,'received_by':u['email'],'at':now(),'density_formula':'(before_liters * before_density + receipt_liters * arrival_density) / after_liters'}
     audit(s,u,'receipt_received',x.code+' / '+str(x.liters)+'L');return receipt_view(s,x)
 def reconciliation(s,data,u):
     tr=get(s,Transfer,data.transfer_id,True)

@@ -9,3 +9,6 @@ LINE_STATES=('idle','busy')
 PERMIT_STATES=('planned','permitted','in_use','completed')
 WINDOW_STATES=('planned','confirmed','in_use','completed')
 RETEST_STATES=('commissioned','reported','closed')
+
+LAYER_STATES=('pending','qualified','anomaly')
+STRATIFICATION_STATES=('none','active','stale')

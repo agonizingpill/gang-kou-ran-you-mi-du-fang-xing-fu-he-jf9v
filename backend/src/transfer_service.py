@@ -16,7 +16,8 @@ def audit(s,u,action,detail):s.add(Audit(actor=u['email'],action=action,detail=s
 def sample_view(s,x):return {**obj(x),'tank_code':s.get(Tank,x.tank_id).code,'grade':s.get(Tank,x.tank_id).grade}
 def transfer_view(s,x):
     sample=s.get(FuelSample,x.sample_id);tank=s.get(Tank,sample.tank_id)
-    return {**obj(x),'sample_code':sample.code,'tank_code':tank.code,'tank_liters':float(tank.liters)}
+    from .layer_service import draws_for
+    return {**obj(x),'sample_code':sample.code,'tank_code':tank.code,'tank_liters':float(tank.liters),'layer_draws':draws_for(s,x.id)}
 def eligible(s,x):
     if x.reference:raise HTTPException(409,'参考样不能用于实船调拨')
     if x.status not in ['qualified','retested']:raise HTTPException(409,'油样未合格或异常尚未通过复检，不能申请调拨')
@@ -41,6 +42,8 @@ def release(s,tr,u):
     if t.status!='active':raise HTTPException(409,'储罐暂停中，不能放行')
     if not within_spec(tr.grade_snapshot,tr.density_snapshot,tr.viscosity_snapshot,tr.sulfur_snapshot):raise HTTPException(409,'调拨化验快照不满足等级规格')
     if tr.liters>t.liters:raise HTTPException(409,'罐内可用量不足，调拨未扣减')
+    from .layer_service import deduct_for_release
+    deduct_for_release(s,t,tr,u)
     from .harbor_service import occupy_for_release
     occupy_for_release(s,tr,u)
     t.liters-=tr.liters;tr.status='released';tr.released_by=u['email'];audit(s,u,'transfer_released',f'{tr.code}:{tr.liters}L');s.flush();return transfer_view(s,tr)
